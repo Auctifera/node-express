@@ -19,6 +19,6 @@ var routes  = require( __dirname + "/app/routers/")(router,mysql,pool);
 
 app.use('/',router);
 
-http.listen(8086,function(){
-    console.log("Listening on 8086");
+http.listen(3000,function(){
+    console.log("Listening on 3000");
 }); 
