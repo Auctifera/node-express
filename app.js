@@ -4,6 +4,8 @@ var mysql   = require("mysql");
 var http    = require('http').Server(app);
 var router  = express.Router();
 
+app.set( 'PORT', process.env.PORT || 9000 );
+
 /* Creating POOL MySQL connection.*/
 var pool = mysql.createPool({
   connectionLimit   :   100,
@@ -19,6 +21,6 @@ var routes  = require( __dirname + "/app/routers/")(router,mysql,pool);
 
 app.use('/',router);
 
-http.listen(3000,function(){
+http.listen(app.get('PORT'),function(){
     console.log("Listening on 3000");
 }); 
