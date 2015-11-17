@@ -1,10 +1,13 @@
 var express = require('express');
 var app     = express();
 var mysql   = require("mysql");
+var bodyParser   = require('body-parser');
 var http    = require('http').Server(app);
 var router  = express.Router();
 
 app.set( 'PORT', process.env.PORT || 9000 );
+app.use( bodyParser.json());
+app.use( bodyParser.urlencoded({ extended: true}));
 
 /* Creating POOL MySQL connection.*/
 var pool = mysql.createPool({
