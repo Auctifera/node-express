@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "crypto": "0.0.3"
+    "crypto": "0.0.3",
+    "express": "^4.13.3",
+    "mysql": "^2.9.0"
   },
   "scripts": {
     "start": "node app.js"
