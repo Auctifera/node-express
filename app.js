@@ -22,5 +22,5 @@ var routes  = require( __dirname + "/app/routers/")(router,mysql,pool);
 app.use('/',router);
 
 http.listen(app.get('PORT'),function(){
-    console.log("Listening on 3000");
+    console.log("Listening on port "+app.get('PORT'));
 }); 

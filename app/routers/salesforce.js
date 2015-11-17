@@ -23,6 +23,7 @@ exports.insert = function (req, res, pool) {
 
 	//var records = req.query;
 	var records = req.body;
+	console.log('records: ',req.body);
 	var signature = records.Signature;
 	var table = records.table;
 
@@ -98,7 +99,8 @@ function getOauth (signature, pool, callback) {
 	    			err = {};
 	    			err.errno = 401;
 	    			err.message = "The connection was denied not authorized for remote RDS connection";
-	    			callback(err, false);
+	    			err = false;
+	    			callback(err, connection);
 	    		}
 
 				}
