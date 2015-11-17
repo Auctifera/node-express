@@ -23,7 +23,9 @@ exports.insert = function (req, res, pool) {
 
 	//var records = req.query;
 	var records = req.body;
-	console.log('records: ',req);
+	console.log('data: ',req.query);
+	console.log('data2:', res.body);
+
 	var signature = records.Signature;
 	var table = records.table;
 
