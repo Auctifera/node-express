@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "crypto": "0.0.3",
-    "express": "^4.13.3",
+    "express": "^4.12.3",
     "mysql": "^2.9.0"
   },
   "scripts": {
