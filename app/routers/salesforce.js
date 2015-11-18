@@ -46,7 +46,31 @@ exports.insert = function (req, res, pool) {
 			res.end();
 		}
 		if (connection) {
-			var sqlQuery = "INSERT INTO "+table+" SET ?"+records+" ON DUPLICATE KEY UPDATE ?"+records;
+
+			var nameRecord = Object.keys(records);
+			var valueRecord = Object.keys(records).map(function (val) {
+				return records(val);
+			})
+			var updateRecords;
+			var nameRecords;
+
+			for (var i = nameRecord.length - 1; i >= 0; i--) {
+
+				nameRecords += nameRecord[i];
+				updateRecords += nameRecord[i] + "VALUES("+valueRecord+")";
+				
+				if (i > 0) {
+					nameRecords += ', ';
+					updateRecords += ', ';
+				}
+
+			}
+
+			console.log('name records: ', nameRecords);
+			console.log('update records: ', updateRecords);
+
+
+			var sqlQuery = "INSERT INTO "+table+" ("+nameRecords+") ON DUPLICATE KEY UPDATE "+updateRecords;
 
 			connection.query(sqlQuery, function (err, rows) {
 				if (err) {
