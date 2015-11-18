@@ -46,7 +46,7 @@ exports.insert = function (req, res, pool) {
 			res.end();
 		}
 		if (connection) {
-			var sqlQuery = "INSERT INTO "+table+" SET "+records+" ON DUPLICATE KEY UPDATE "+records;
+			var sqlQuery = "INSERT INTO "+table+" SET ?"+records+" ON DUPLICATE KEY UPDATE ?"+records;
 
 			connection.query(sqlQuery, function (err, rows) {
 				if (err) {
