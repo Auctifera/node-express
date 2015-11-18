@@ -20,12 +20,20 @@ exports.insertRecord = function (req, res, pool) {
 
 	var record = req.body;
 	record.IdSF = record.Id;
-	record.RecordType = record.RecordType.attributes.DeveloperName;
+	
 	console.log('define record: ',record);
+
+	if (record.RecordType != undefined) {
+		record.RecordType = record.RecordType.attributes.DeveloperName;
+	}
 
 	var signature = record.Signature;
 	// var table = record.table;
-	var table = record.attributes.type;
+	var table = "";
+
+	if (record.attributes != undefined) {
+		table = record.attributes.type;
+	}
 
 	
 	delete record.Signature;
