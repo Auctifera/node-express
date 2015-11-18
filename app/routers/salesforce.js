@@ -23,8 +23,11 @@ exports.insertRecord = function (req, res, pool) {
 	console.log('define record: ',record);
 
 	var signature = record.Signature;
-	var table = record.attributes.type;
-	// var table = record.table;
+	var table = record.table;
+	
+	if (record.attributes !== undefined) {
+		table = record.attributes.type;
+	}
 	
 	delete record.Signature;
 	delete record.table;
