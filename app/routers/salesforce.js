@@ -21,18 +21,14 @@ var crypto 			 = require('crypto');
 
 exports.insert = function (req, res, pool) {
 
-	//var records = req.query;
-	var records = req.body;
-	console.log('data: ',req.query);
-	console.log('data2: ', req.body);
-	console.log('data3: ', res.body);
-	console.log('data4: ', res.query);
+	var record = req.body;
+	console.log('define record: ',record);
 
-	var signature = records.Signature;
-	var table = records.table;
+	var signature = record.Signature;
+	var table = record.table;
 
-	delete records.Signature;
-	delete records.table;
+	delete record.Signature;
+	delete record.table;
 	
 	getOauth(signature, pool, function (err, connection) {
 		if (err) {
@@ -47,35 +43,44 @@ exports.insert = function (req, res, pool) {
 		}
 		if (connection) {
 
-			var nameRecord = Object.keys(records);
-			var valueRecord = Object.keys(records).map(function (val) {
-				return records(val);
-			})
-			var updateRecords;
-			var nameRecords;
+			console.log('record resul: ', record);
 
-			for (var i = nameRecord.length - 1; i >= 0; i--) {
+			var nameField = Object.keys(record);
+			var valueField = Object.keys(record).map(function (val) {
+				return record[val];
+			});
 
-				nameRecords += nameRecord[i];
-				updateRecords += nameRecord[i] + "VALUES("+valueRecord+")";
+			console.log('name Field: ', nameField);
+			console.log('value Field: ', valueField);
+
+			var updateFields = "";
+			var nameFields = "";
+			var valueFields = "";
+
+			for (var i = nameField.length - 1; i >= 0; i--) {
+
+				nameFields += "`"+nameField[i]+"`";
+				valueFields += "'"+valueField[i]+"'";
+				updateFields += "`"+nameField[i]+"` = '"+valueField[i]+"'";
 				
 				if (i > 0) {
-					nameRecords += ', ';
-					updateRecords += ', ';
+					nameFields += ',';
+					valueFields += ',';
+					updateFields += ',';
 				}
 
 			}
 
-			console.log('name records: ', nameRecords);
-			console.log('update records: ', updateRecords);
+			console.log('name record: ', nameFields);
+			console.log('update record: ', updateFields);
 
+			var sqlQuery = "INSERT INTO `"+table+"` ("+nameFields+") VALUES("+valueFields+") ON DUPLICATE KEY UPDATE "+updateFields;
 
-			var sqlQuery = "INSERT INTO "+table+" ("+nameRecords+") ON DUPLICATE KEY UPDATE "+updateRecords;
-
+			console.log('query: ', sqlQuery);
 			connection.query(sqlQuery, function (err, rows) {
-				if (err) {
-					var response = {}
+				var response = {}
 			
+				if (err) {
 					response.errno = err.errno;
 					response.error = err.message; 
 					
@@ -84,10 +89,13 @@ exports.insert = function (req, res, pool) {
 					res.end();
 				}
 				if (rows) {
-					console.log("mysql-response", err.errno);
-					console.log("error:", err);
-					console.log("message:", rows);
-					console.log(rows);
+					response.Id 	 = rows.insertId;
+					response.IdSF  = record.IdSF;
+					response.table = table;
+
+					res.setHeader("mysql-response", rows.serverStatus);
+					res.send(response);
+					res.end();
 				}
 			});
 		}
