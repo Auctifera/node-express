@@ -16,24 +16,26 @@ app.js
 	-views
 		home.jade
 */
-
-var crypto 			 = require('crypto');
-
-exports.insert = function (req, res, pool) {
+exports.insertRecord = function (req, res, pool) {
 
 	var record = req.body;
+	record.IdSF = record.Id;
 	console.log('define record: ',record);
 
 	var signature = record.Signature;
-	var table = record.table;
-
+	var table = record.attributes.type;
+	// var table = record.table;
+	
 	delete record.Signature;
 	delete record.table;
-	
+	delete record.Id;
+
 	getOauth(signature, pool, function (err, connection) {
-		if (err) {
-			var response = {}
+		var response = {}
+
+		console.log('getOauth', err);
 			
+		if (err) {
 			response.errno = err.errno;
 			response.error = err.message; 
 			
@@ -53,7 +55,6 @@ exports.insert = function (req, res, pool) {
 			console.log('name Field: ', nameField);
 			console.log('value Field: ', valueField);
 
-			var updateFields = "";
 			var nameFields = "";
 			var valueFields = "";
 
@@ -61,25 +62,20 @@ exports.insert = function (req, res, pool) {
 
 				nameFields += "`"+nameField[i]+"`";
 				valueFields += "'"+valueField[i]+"'";
-				updateFields += "`"+nameField[i]+"` = '"+valueField[i]+"'";
 				
 				if (i > 0) {
 					nameFields += ',';
 					valueFields += ',';
-					updateFields += ',';
 				}
 
 			}
 
 			console.log('name record: ', nameFields);
-			console.log('update record: ', updateFields);
-
-			var sqlQuery = "INSERT INTO `"+table+"` ("+nameFields+") VALUES("+valueFields+") ON DUPLICATE KEY UPDATE "+updateFields;
+			
+			var sqlQuery = "INSERT INTO `"+table+"` ("+nameFields+") VALUES("+valueFields+") ON DUPLICATE KEY UPDATE ?";
 
 			console.log('query: ', sqlQuery);
-			connection.query(sqlQuery, function (err, rows) {
-				var response = {}
-			
+			connection.query(sqlQuery, record, function (err, rows) {
 				if (err) {
 					response.errno = err.errno;
 					response.error = err.message; 
@@ -104,14 +100,123 @@ exports.insert = function (req, res, pool) {
 
 }
 
+exports.updateRecord = function (req, res, pool) {
+	var record = req.body;
+	console.log('define record: ',record);
+
+	var signature = record.Signature;
+	var table = record.table;
+	var IdSF = record.Id
+
+	delete record.Signature;
+	delete record.table;
+	delete record.Id;
+	
+	getOauth(signature, pool, function (err, connection) {
+		var response = {}
+
+		if (err) {
+			response.errno = err.errno;
+			response.error = err.message; 
+			
+			res.setHeader("mysql-response", err.errno);
+			res.send(response);
+			res.end();
+		}
+		if (connection) {
+
+			var sqlQuery = "UPDATE "+table+" SET ? WHERE IdSF = '"+IdSF+"'";
+
+			connection.query(sqlQuery,record, function (err, rows) {
+				if (err) {
+					response.errno = err.errno;
+					response.error = err.message; 
+					
+					res.setHeader("mysql-response", err.errno);
+					res.send(response);
+					res.end();
+				}
+				if (rows) {
+
+					console.log(rows);
+
+					response.message 	 = rows.message;
+					response.changedRows  = rows.changedRows;
+
+					res.setHeader("mysql-response", rows.serverStatus);
+					res.send(response);
+					res.end();
+				}
+			});
+
+		}
+	});
+}
+
+exports.deleteRecord = function (req, res, pool) {
+	
+	var record = req.body;
+	console.log('define record: ',record);
+
+	var signature = record.Signature;
+	var table = record.table;
+	var IdSF = record.Id
+
+	delete record.Signature;
+	delete record.table;
+	delete record.Id;
+
+	getOauth(signature, pool, function (err, connection) {
+		var response = {}
+
+		if (err) {
+			response.errno = err.errno;
+			response.error = err.message; 
+			
+			res.setHeader("mysql-response", err.errno);
+			res.send(response);
+			res.end();
+		}
+		if (connection) {
+
+			var sqlQuery = "DELETE FROM "+table+" WHERE IdSF = '"+IdSF+"'";
+
+			connection.query(sqlQuery, function (err, rows) {
+				if (err) {
+					response.errno = err.errno;
+					response.error = err.message; 
+					
+					res.setHeader("mysql-response", err.errno);
+					res.send(response);
+					res.end();
+				}
+				if (rows) {
+
+					console.log(rows);
+
+					response.message 	 = "success";
+
+					res.setHeader("mysql-response", rows.serverStatus);
+					res.send(response);
+					res.end();
+				}
+			});
+
+		}
+
+	});
+
+}
+
 /*Get connection and oauth to RDS*/
 function getOauth (signature, pool, callback) {
 
-	var signatureArray 	= signature.split(".");
-	var encodedEnvelope = signatureArray[0];
-	var consumerSecret 	= signatureArray[1];
-	
+	console.log('init getOauth!');
+
 	pool.getConnection(function (err, connection){
+
+		console.log('start connection!');
+	
 		if (err) {
 			err.message = "Error in database connection";
 			callback(err, connection);
@@ -127,16 +232,32 @@ function getOauth (signature, pool, callback) {
 					callback(err, connection);
 				}
 				if (rows) {
+
+					/*If the signature es missing or incorrect*/
+					if (signature === undefined) {
+						err = {}
+						err.errno = 4011;
+						err.message = "The connection was denied not authorized. The signature is missing";		
+
+						callback(err, false);
+						return err;
+					} 
+
+					var signatureArray 	= signature.split(".");
+					var encodedEnvelope = signatureArray[0];
+					var consumerSecret 	= signatureArray[1];
+					var crypto 			 		= require('crypto');
+
+
 					check = crypto.createHmac('SHA256', rows[0]['Secret']).update(encodedEnvelope).digest('base64')
 
 		    	if ( check === consumerSecret ) {
 		    		callback(false, connection);
 	    		}else{
 	    			err = {};
-	    			err.errno = 401;
-	    			err.message = "The connection was denied not authorized for remote RDS connection";
-	    			err = false;
-	    			callback(err, connection);
+	    			err.errno = 4012;
+	    			err.message = "The connection was denied not authorized. The signature is incorrect";
+	    			callback(err, false);
 	    		}
 
 				}
