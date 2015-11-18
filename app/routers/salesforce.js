@@ -27,6 +27,7 @@ exports.insertRecord = function (req, res, pool) {
 	
 	if (record.attributes !== undefined) {
 		table = record.attributes.type;
+		delete record.attributes;
 	}
 	
 	delete record.Signature;
