@@ -109,8 +109,14 @@ exports.updateRecord = function (req, res, pool) {
 	console.log('define record: ',record);
 
 	var signature = record.Signature;
-	var table = record.table;
 	var IdSF = record.Id
+
+	var table = record.table;
+	
+	if (record.attributes !== undefined) {
+		table = record.attributes.type;
+		delete record.attributes;
+	}
 
 	delete record.Signature;
 	delete record.table;
@@ -163,8 +169,14 @@ exports.deleteRecord = function (req, res, pool) {
 	console.log('define record: ',record);
 
 	var signature = record.Signature;
-	var table = record.table;
 	var IdSF = record.Id
+
+	var table = record.table;
+	
+	if (record.attributes !== undefined) {
+		table = record.attributes.type;
+		delete record.attributes;
+	}
 
 	delete record.Signature;
 	delete record.table;
