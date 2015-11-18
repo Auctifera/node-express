@@ -6,10 +6,10 @@ module.exports = function (router, mysql, pool) {
 	router.post('/insert/', function (req, res) { 
 		sf.insertRecord(req, res, pool);
 	});
-	router.put('/update/', function (req, res) { 
+	router.post('/update/', function (req, res) { 
 		sf.updateRecord(req, res, pool);
 	});
-	router.delete('/delete/', function (req, res) { 
+	router.post('/delete/', function (req, res) { 
 		sf.deleteRecord(req, res, pool);
 	});
 

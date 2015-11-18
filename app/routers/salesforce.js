@@ -25,11 +25,6 @@ exports.insertRecord = function (req, res, pool) {
 	var signature = record.Signature;
 	var table = record.table;
 	
-	if (record.attributes !== undefined) {
-		table = record.attributes.type;
-		delete record.attributes;
-	}
-	
 	delete record.Signature;
 	delete record.table;
 	delete record.Id;
@@ -42,6 +37,8 @@ exports.insertRecord = function (req, res, pool) {
 		if (err) {
 			response.errno = err.errno;
 			response.error = err.message; 
+
+			console.log('insert response: ',response);
 			
 			res.setHeader("mysql-response", err.errno);
 			res.send(response);
@@ -59,6 +56,7 @@ exports.insertRecord = function (req, res, pool) {
 			console.log('name Field: ', nameField);
 			console.log('value Field: ', valueField);
 
+			var updateFields = "";
 			var nameFields = "";
 			var valueFields = "";
 
@@ -66,32 +64,41 @@ exports.insertRecord = function (req, res, pool) {
 
 				nameFields += "`"+nameField[i]+"`";
 				valueFields += "'"+valueField[i]+"'";
+				updateFields += "`"+nameField[i]+"` = '"+valueField[i]+"'";
 				
 				if (i > 0) {
 					nameFields += ',';
 					valueFields += ',';
+					updateFields += ',';
 				}
 
 			}
 
 			console.log('name record: ', nameFields);
 			
-			var sqlQuery = "INSERT INTO `"+table+"` ("+nameFields+") VALUES("+valueFields+") ON DUPLICATE KEY UPDATE ?";
+			var sqlQuery = "INSERT INTO `"+table+"` ("+nameFields+") VALUES("+valueFields+") ON DUPLICATE KEY UPDATE "+updateFields;
 
 			console.log('query: ', sqlQuery);
-			connection.query(sqlQuery, record, function (err, rows) {
+			connection.query(sqlQuery, function (err, rows) {
 				if (err) {
 					response.errno = err.errno;
 					response.error = err.message; 
+
+					console.log('insert response: ',response);
 					
 					res.setHeader("mysql-response", err.errno);
 					res.send(response);
 					res.end();
 				}
 				if (rows) {
+
+					console.log('insert rows: ',rows);
+
 					response.Id 	 = rows.insertId;
 					response.IdSF  = record.IdSF;
 					response.table = table;
+
+					console.log('insert response: ',response);
 
 					res.setHeader("mysql-response", rows.serverStatus);
 					res.send(response);
