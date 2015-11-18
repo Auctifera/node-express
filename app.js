@@ -8,6 +8,11 @@ var router  		= express.Router();
 app.set('PORT', process.env.PORT || 9000 );
 app.use(bodyParser.urlencoded({ extended: false}));
 app.use(bodyParser.json());
+app.use(function(err, req, res, next) {
+	res.header("Access-Control-Allow-Origin", "https://*.salesforce.com");
+	res.header("Access-Control-Allow-Origin", "https://*.visual.force.com");
+	next();
+});
 
 /* Creating POOL MySQL connection.*/
 var pool = mysql.createPool({
