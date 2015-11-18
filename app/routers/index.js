@@ -4,7 +4,6 @@ module.exports = function (router, mysql, pool) {
 	
 	/* Functions INSERT, UPDATE, DELETE records - SF to RDS */
 	router.post('/insert/', function (req, res) { 
-		console.log(req);
 		sf.insert(req, res, pool);
 	});
 
