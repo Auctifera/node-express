@@ -20,13 +20,17 @@ exports.insertRecord = function (req, res, pool) {
 
 	var record = req.body;
 	record.IdSF = record.Id;
+	record.RecordType = record.RecordType.attributes.DeveloperName;
 	console.log('define record: ',record);
 
 	var signature = record.Signature;
-	var table = record.table;
+	// var table = record.table;
+	var table = record.attributes.type;
+
 	
 	delete record.Signature;
-	delete record.table;
+	// delete record.table;
+	delete record.attributes;
 	delete record.Id;
 
 	getOauth(signature, pool, function (err, connection) {
