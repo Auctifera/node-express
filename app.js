@@ -6,8 +6,8 @@ var http    = require('http').Server(app);
 var router  = express.Router();
 
 app.set( 'PORT', process.env.PORT || 9000 );
-app.use( bodyParser.json());
 app.use( bodyParser.urlencoded({ extended: true}));
+app.use( bodyParser.json());
 
 /* Creating POOL MySQL connection.*/
 var pool = mysql.createPool({
@@ -24,6 +24,6 @@ var routes  = require( __dirname + "/app/routers/")(router,mysql,pool);
 
 app.use('/',router);
 
-http.listen(app.get('PORT'),function(){
+http.createServer(app).listen(app.get('PORT'),function(){
     console.log("Listening on port "+app.get('PORT'));
 }); 
