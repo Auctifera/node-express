@@ -1,303 +1,272 @@
-/*
-app.js
--app
-	-routers
-		index.js
-			post('/insert/')
-			put('/update/')
-			delete('/delete/')
-		salesforce.js
-			sf.insert/update
-			sf.update
-			sf.delete
-			getOauth
-		user.js
-		home.js
-	-views
-		home.jade
-*/
-exports.insertRecord = function (req, res, pool) {
+/* Salesforce integration methods
+ * Methods: inserdRecord, updateRecord, deleteRecord
+ * Functions: getOauth, responseError
+ * Test use: advanced rest client
+ */
 
-	var record = req.body;
-	record.IdSF = record.Id;
-	
-	console.log('define record: ',record);
+/* Insert or update record - Salesforce to RDS
+ * Expects: req.body, res, pool
+ * Returns: if error: errno, message
+ * 					if rows: Id, IdSalesforce(IdSF), table
+ * Test variables: table: record.type, record.Recordtype: record.RecordType; 
+ */
+exports.insertRecord = function (record, res, pool) {
+		
+	getOauth(record.Signature, pool, function (err, connection) {
 
-	if (record.RecordType != undefined) {
-		record.RecordType = record.RecordType.attributes.DeveloperName;
-	}
-
-	var signature = record.Signature;
-	// var table = record.table;
-	var table = "";
-
-	if (record.attributes != undefined) {
-		table = record.attributes.type;
-	}
-
-	
-	delete record.Signature;
-	// delete record.table;
-	delete record.attributes;
-	delete record.Id;
-
-	getOauth(signature, pool, function (err, connection) {
-		var response = {}
-
-		console.log('getOauth', err);
-			
 		if (err) {
-			response.errno = err.errno;
-			response.error = err.message; 
-
-			console.log('insert response: ',response);
-			
-			res.setHeader("mysql-response", err.errno);
-			res.send(response);
-			res.end();
-		}
-		if (connection) {
-
-			console.log('record resul: ', record);
-
-			var nameField = Object.keys(record);
-			var valueField = Object.keys(record).map(function (val) {
-				return record[val];
-			});
-
-			console.log('name Field: ', nameField);
-			console.log('value Field: ', valueField);
-
-			var updateFields = "";
-			var nameFields = "";
-			var valueFields = "";
-
-			for (var i = nameField.length - 1; i >= 0; i--) {
-
-				nameFields += "`"+nameField[i]+"`";
-				valueFields += "'"+valueField[i]+"'";
-				updateFields += "`"+nameField[i]+"` = '"+valueField[i]+"'";
-				
-				if (i > 0) {
-					nameFields += ',';
-					valueFields += ',';
-					updateFields += ',';
-				}
-
-			}
-
-			console.log('name record: ', nameFields);
-			
-			var sqlQuery = "INSERT INTO `"+table+"` ("+nameFields+") VALUES("+valueFields+") ON DUPLICATE KEY UPDATE "+updateFields;
-
-			console.log('query: ', sqlQuery);
-			connection.query(sqlQuery, function (err, rows) {
-				if (err) {
-					response.errno = err.errno;
-					response.error = err.message; 
-
-					console.log('insert response: ',response);
-					
-					res.setHeader("mysql-response", err.errno);
-					res.send(response);
-					res.end();
-				}
-				if (rows) {
-
-					console.log('insert rows: ',rows);
-
-					response.Id 	 = rows.insertId;
-					response.IdSF  = record.IdSF;
-					response.table = table;
-
-					console.log('insert response: ',response);
-
-					res.setHeader("mysql-response", rows.serverStatus);
-					res.send(response);
-					res.end();
-				}
-			});
+			responseError(err, res);
+			return;
 		}
 		
-	});
+		//record.type
+		var table = record.attributes.type;
+		
+		record.IdSF = record.Id;
 
-}
+		if (record.RecordType != undefined) {
+			//record.RecordType
+			record.RecordType = record.RecordType.attributes.DeveloperName;
+		};
 
-exports.updateRecord = function (req, res, pool) {
-	var record = req.body;
-	console.log('define record: ',record);
-
-	var signature = record.Signature;
-	var IdSF = record.Id
-
-	var table = record.table;
-	
-	if (record.attributes !== undefined) {
-		table = record.attributes.type;
+		delete record.Signature;
+		//record.type
 		delete record.attributes;
-	}
+		delete record.Id;
+		
+		/*build string query for insert/update like: 
+		* "INSERT INTO type (`field name`, `field name`) 
+		* VALUES('field value','field value') 
+		*	ON DUPLICATE KEY UPDATE ?"
+		*/
+		var fieldsName 	= "";
+		var fieldsValue = "";
+		var fieldName 	= Object.keys(record);
+		var fieldValue 	= Object.keys(record).map(function (val) {
+			return record[val];
+		});
 
-	delete record.Signature;
-	delete record.table;
-	delete record.Id;
-	
-	getOauth(signature, pool, function (err, connection) {
-		var response = {}
+		for (var i = fieldName.length - 1; i >= 0; i--) {
+			fieldsName 	+= "`"+fieldName[i]+"`,";
+			fieldsValue += "'"+fieldValue[i]+"',";
+		}
 
-		if (err) {
-			response.errno = err.errno;
-			response.error = err.message; 
-			
-			res.setHeader("mysql-response", err.errno);
+		fieldsName 	= fieldsName.substring(0, fieldsName.length - 1);
+		fieldsValue = fieldsValue.substring(0, fieldsValue.length - 1);
+
+		var sqlQueryInsert = "INSERT INTO `"+table+"` ("+fieldsName+") "+
+													"VALUES("+fieldsValue+") ON DUPLICATE KEY UPDATE ?";
+
+		connection.query(sqlQueryInsert, record, function (err, rows) {
+
+			if (err) {
+				responseError(err, res);
+				return;
+			};
+
+			var response = {};
+
+			response.Id 	 = rows.insertId;
+			response.IdSF  = record.IdSF;
+			response.table = table;
+
+			//if not update data get Id record 
+			if (rows.insertId === 0) {
+
+				var sqlQueryGetId = "SELECT Id FROM "+table+" WHERE IdSF = '"+record.IdSF+"'";
+
+				connection.query(sqlQueryGetId, function (err, rows) {
+
+					if (err) {
+						responseError(err, res);
+						return;
+					};
+
+					response.Id = rows[0].Id;
+
+					res.setHeader("mysql-response", 2);
+					res.send(response);
+					res.end();
+
+				});
+
+				return;
+			};
+
+			res.setHeader("mysql-response", 2);
 			res.send(response);
 			res.end();
-		}
-		if (connection) {
 
-			var sqlQuery = "UPDATE "+table+" SET ? WHERE IdSF = '"+IdSF+"'";
+		});
 
-			connection.query(sqlQuery,record, function (err, rows) {
-				if (err) {
-					response.errno = err.errno;
-					response.error = err.message; 
-					
-					res.setHeader("mysql-response", err.errno);
-					res.send(response);
-					res.end();
-				}
-				if (rows) {
-
-					console.log(rows);
-
-					response.message 	 = rows.message;
-					response.changedRows  = rows.changedRows;
-
-					res.setHeader("mysql-response", rows.serverStatus);
-					res.send(response);
-					res.end();
-				}
-			});
-
-		}
 	});
+
 }
 
-exports.deleteRecord = function (req, res, pool) {
+/* Update record - Salesforce to RDS
+ * Expects: req.body, res, pool
+ * Returns: if error: errno, message
+ * 					if rows: message, changedRows
+ * Test: table: record.type, record.Recordtype: record.RecordType; 
+ */
+exports.updateRecord = function (record, res, pool) {
 	
-	var record = req.body;
-	console.log('define record: ',record);
-
-	var signature = record.Signature;
-	var IdSF = record.Id
-
-	var table = record.table;
-	
-	if (record.attributes !== undefined) {
-		table = record.attributes.type;
-		delete record.attributes;
-	}
-
-	delete record.Signature;
-	delete record.table;
-	delete record.Id;
-
-	getOauth(signature, pool, function (err, connection) {
-		var response = {}
+	getOauth(record.Signature, pool, function (err, connection) {
 
 		if (err) {
-			response.errno = err.errno;
-			response.error = err.message; 
+			responseError(err, res);
+			return;
+		}
+
+		//record.type
+		var table = record.attributes.type;
+		var IdSF 	= record.Id
+	
+		record.IdSF = record.Id;
+
+		if (record.RecordType != undefined) {
+			//record.RecordType
+			record.RecordType = record.RecordType.attributes.DeveloperName;
+		};
+
+		delete record.Signature;
+		//record.type
+		delete record.attributes;
+		delete record.Id;
+
+		var sqlQuery = "UPDATE "+table+" SET ? WHERE IdSF = '"+IdSF+"'";
+
+		connection.query(sqlQuery,record, function (err, rows) {
 			
-			res.setHeader("mysql-response", err.errno);
+			if (err) {
+				responseError(err, res);
+				return;
+			}
+			
+			var response = {};
+
+			response.message 	 		= rows.message;
+			response.changedRows  = rows.changedRows;
+
+			res.setHeader("mysql-response", rows.serverStatus);
 			res.send(response);
 			res.end();
-		}
-		if (connection) {
+		});
+	});
+}
 
-			var sqlQuery = "DELETE FROM "+table+" WHERE IdSF = '"+IdSF+"'";
+/* Delete record - Salesforce to RDS
+ * Expects: req.body, res, pool
+ * Returns: if error: errno, message
+ * 					if rows: message, changedRows
+ */
+exports.deleteRecord = function (record, res, pool) {
 
-			connection.query(sqlQuery, function (err, rows) {
-				if (err) {
-					response.errno = err.errno;
-					response.error = err.message; 
-					
-					res.setHeader("mysql-response", err.errno);
-					res.send(response);
-					res.end();
-				}
-				if (rows) {
+	getOauth(record.Signature, pool, function (err, connection) {
 
-					console.log(rows);
-
-					response.message 	 = "success";
-
-					res.setHeader("mysql-response", rows.serverStatus);
-					res.send(response);
-					res.end();
-				}
-			});
-
+		if (err) {
+			responseError(err, res);
+			return;
 		}
 
+		var sqlQuery = "DELETE FROM "+record.type+" WHERE IdSF = '"+record.Id+"'";
+		
+		connection.query(sqlQuery, function (err, rows) {
+				
+			if (err) {
+				responseError(err, res);
+				return;
+			}
+			
+			var response = {};
+
+			response.message 	 = "Delete record: "+rows.changedRows;
+			
+			res.setHeader("mysql-response", rows.serverStatus);
+			res.send(response);
+			res.end();
+		
+		});
+	
 	});
 
 }
 
-/*Get connection and oauth to RDS*/
-function getOauth (signature, pool, callback) {
+/* Get oauth RDS using Salesforce signature
+ * Expects: signature Salesforce(signature), pool, function(err,connection)(callback)
+ * Returns: if error -> errno, message
+ * 					if check -> connection
+ */
+function getOauth(signature, pool, callback) {
 
-	console.log('init getOauth!');
+	if (signature === undefined) {
+		
+		var err = {
+			errno : 4011,
+			message : 'The connection was denied not authorized. The signature is missing'
+		}; 
+
+		callback(err, false);
+		return;
+	}
 
 	pool.getConnection(function (err, connection){
 
-		console.log('start connection!');
-	
 		if (err) {
 			err.message = "Error in database connection";
 			callback(err, connection);
-		}
-		if (connection) {
-			var sqlQuery = "SELECT Secret FROM Credentials__c";
+			return;
+		};
+
+		var sqlQuery = "SELECT Secret FROM Credentials__c";
+
+		connection.query(sqlQuery, function (err, rows) {
+
+			if (err) {
+				err.message = "Error in database query";
+				callback(err, connection);
+				return;
+			};
+
+			var signatureArray 	= signature.split(".");
+			var encodedEnvelope = signatureArray[0];
+			var consumerSecret 	= signatureArray[1];
+			var crypto 			 		= require('crypto');
+
+			check = crypto.createHmac('SHA256', rows[0]['Secret'])
+										.update(encodedEnvelope).digest('base64');
+
+    	if (check === consumerSecret) {
+    		callback(false, connection);
+    		return;
+  		};
 			
-			connection.query(sqlQuery, function (err, rows) {
-				connection.release();
+			err = {
+				errno : 4012,
+				message : 'The connection was denied not authorized. The signature is incorrect'
+			};
 
-				if (err) {
-					err.message = "Error in database query";
-					callback(err, connection);
-				}
-				if (rows) {
+			callback(err, false);	
 
-					/*If the signature es missing or incorrect*/
-					if (signature === undefined) {
-						err = {}
-						err.errno = 4011;
-						err.message = "The connection was denied not authorized. The signature is missing";		
+		});
 
-						callback(err, false);
-						return err;
-					} 
-
-					var signatureArray 	= signature.split(".");
-					var encodedEnvelope = signatureArray[0];
-					var consumerSecret 	= signatureArray[1];
-					var crypto 			 		= require('crypto');
-
-
-					check = crypto.createHmac('SHA256', rows[0]['Secret']).update(encodedEnvelope).digest('base64')
-
-		    	if ( check === consumerSecret ) {
-		    		callback(false, connection);
-	    		}else{
-	    			err = {};
-	    			err.errno = 4012;
-	    			err.message = "The connection was denied not authorized. The signature is incorrect";
-	    			callback(err, false);
-	    		}
-
-				}
-			});
-		}
 	});
 
+}
+
+/* Response server error 
+ * Expects: err, res
+ * Returns: null
+ */
+function responseError(err, res) {
+	
+	var response = {}
+
+	response.errno = err.errno;
+	response.error = err.message; 
+
+	res.setHeader("mysql-response", err.errno);
+	res.send(response);
+	res.end();
+	return;
 }
